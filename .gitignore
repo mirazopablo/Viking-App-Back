@@ -146,3 +146,5 @@ src/main/resources/application.properties
 HELP.md
 mvnw
 mvnw.cmd
+*.png
+*.jpg
