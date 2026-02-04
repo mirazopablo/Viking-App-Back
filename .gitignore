@@ -37,7 +37,7 @@ tmp/
 temp/
 
 # Archivos de prueba
-**/test/
+# **/test/
 **/tests/
 
 # Archivos de documentación
