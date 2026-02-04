@@ -1,11 +1,9 @@
 package com.ElVikingoStore.Viking_App.Resources;
 
-import com.ElVikingoStore.Viking_App.DTOs.UserDto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import com.ElVikingoStore.Viking_App.Models.Role;
-import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -19,42 +17,44 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ElVikingoStore.Viking_App.DTOs.JwtAuthResponse;
 import com.ElVikingoStore.Viking_App.DTOs.LoginUserDto;
-
+import com.ElVikingoStore.Viking_App.DTOs.RegisterDto;
 import com.ElVikingoStore.Viking_App.Services.AuthService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
+
 @Tag(name = "Auth", description = "Endpoints para autenticación y registro de usuarios")
 
 @RestController
 @RequestMapping("/auth")
+@RequiredArgsConstructor
 public class AuthResource {
 
-    @Autowired
-    private AuthService authService;
-    @Operation(summary = "Registro de usuario", description = "Crea un nuevo usuario en el sistema")
-    @PostMapping(value = "/signup", consumes = "application/json", produces = "application/json")
-    public ResponseEntity<String> registerUser(@Valid @RequestBody UserDto userDto) {
-        String response = authService.registerUser(userDto);
+    private final AuthService authService;
+    private static final Logger logger = LoggerFactory.getLogger(AuthResource.class);
+
+    @PostMapping("/signup")
+    public ResponseEntity<String> registerUser(@Valid @RequestBody RegisterDto request) {
+        String response = authService.registerUser(request);
         return ResponseEntity.ok(response);
     }
 
-    @Operation(summary = "Login de usuario", description = "Inicia sesión en el sistema")
     @PostMapping("/login")
-    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginUserDto loginDto) {
+    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginUserDto loginRequest) {
         try {
-            JwtAuthResponse response = authService.loginUser(loginDto);
+            JwtAuthResponse response = authService.loginUser(loginRequest);
             return ResponseEntity.ok(response);
         } catch (BadCredentialsException e) {
+            logger.warn("Authentication failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body("Invalid username or password");
         } catch (Exception e) {
+            logger.error("Unexpected error during login", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("An unexpected error occurred");
         }
     }
-
 
     @GetMapping("/validate")
     public ResponseEntity<Boolean> validateToken(HttpServletRequest request) {

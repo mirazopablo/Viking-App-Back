@@ -1,8 +1,7 @@
 package com.ElVikingoStore.Viking_App.JWT;
 
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.UUID;
 
 import javax.crypto.SecretKey;
 
@@ -19,17 +18,10 @@ import com.ElVikingoStore.Viking_App.Exception.ApiException;
 
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
-import lombok.extern.log4j.Log4j2;
 
-@SecurityScheme(
-        name = "bearerAuth",
-        type = SecuritySchemeType.HTTP,
-        bearerFormat = "JWT",
-        scheme = "bearer"
-)
+@SecurityScheme(name = "bearerAuth", type = SecuritySchemeType.HTTP, bearerFormat = "JWT", scheme = "bearer")
 @Component
 public class JwtTokenProvider {
-
 
     @Value("${security.jwt.secret-key}")
     private String secretKey;
@@ -38,19 +30,20 @@ public class JwtTokenProvider {
     private long jwtExpirationInMs;
 
     // generate token
-    public String generateToken(Authentication authentication) {
+    public String generateToken(Authentication authentication, UUID roleId, UUID userId) {
         String username = authentication.getName();
-        String token = Jwts.builder()
-                .setSubject(username)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationInMs))
-                .signWith(signWithKey(), SignatureAlgorithm.HS512)
+        return Jwts.builder()
+                .subject(username)
+                .claim("roleId", roleId)
+                .claim("userId", userId)
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + jwtExpirationInMs))
+                .signWith(signWithKey(), Jwts.SIG.HS512)
                 .compact();
-        return token;
     }
 
     // get username from the token
-    public String getUsernameFromJWT(String token){
+    public String getUsernameFromJWT(String token) {
         Claims claims = Jwts.parser()
                 .verifyWith(signWithKey())
                 .build()
@@ -81,7 +74,7 @@ public class JwtTokenProvider {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Unsupported JWT token");
         } catch (IllegalArgumentException ex) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "JWT claims string is empty.");
-        } catch (SignatureException ex) {
+        } catch (io.jsonwebtoken.security.SignatureException ex) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "falla api exception");
         }
     }

@@ -35,13 +35,11 @@ public class SecurityConfig {
     @Autowired
     private CustomUserDetailsService usuarioService;
 
-    @Bean
-    public JwtAuthFilter jwtAuthenticationFilter(){
-        return new JwtAuthFilter();
-    }
+    @Autowired
+    private JwtAuthFilter jwtAuthFilter;
 
     @Bean
-    PasswordEncoder passwordEncoder(){
+    PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
@@ -66,16 +64,16 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/v3/api-docs.yaml",
                                 "/api-docs/**",
-                                "/webjars/**").permitAll()
+                                "/webjars/**")
+                        .permitAll()
                         // El resto requiere autenticación
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint(authenticationEntryPoint))
                 .sessionManagement(management -> management
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
-        http.addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         http.authenticationProvider(doAuthenticationProvider());
 
         return http.build();
