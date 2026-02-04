@@ -1,17 +1,15 @@
 package com.ElVikingoStore.Viking_App.Services;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.Objects;
 
-import com.ElVikingoStore.Viking_App.DTOs.DeviceDto;
-import com.ElVikingoStore.Viking_App.JWT.JwtTokenProvider;
+import java.util.UUID;
+
+import com.ElVikingoStore.Viking_App.DTOs.Device.DeviceCreateRequestDto;
+import com.ElVikingoStore.Viking_App.DTOs.Device.DeviceResponseDto;
+import com.ElVikingoStore.Viking_App.DTOs.Device.DeviceUpdateRequestDto;
 import com.ElVikingoStore.Viking_App.Repositories.UserRepo;
-import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.ElVikingoStore.Viking_App.Models.User;
@@ -19,75 +17,155 @@ import com.ElVikingoStore.Viking_App.Models.Device;
 import com.ElVikingoStore.Viking_App.Repositories.DeviceRepo;
 
 import jakarta.transaction.Transactional;
+
 @Schema(name = "DeviceService", description = "Servicio para la gestión de dispositivos")
 @Service
+@Transactional
 public class DeviceService {
-    @Autowired
-    DeviceRepo deviceRepo;
-    @Autowired
-    UserRepo userRepo;
-    @Autowired
-    private JwtTokenProvider tokenProvider;
-    @Operation(summary = "Obtener todos los dispositivos", description = "Obtiene una lista de todos los dispositivos registrados en el sistema")
-    public List<DeviceDto> getAllDevicesDto() {
-        return deviceRepo.findAll().stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
-    }
-    @Operation(summary = "Obtener dispositivo por ID", description = "Obtiene un dispositivo por su ID")
-    public Optional<Device> getDeviceById(UUID id){
-        return deviceRepo.findById(id);
-    }
-    @Operation(summary = "Obtener dispositivo por número de serie", description = "Obtiene un dispositivo por su número de serie")
-    public Optional<DeviceDto> getDeviceDtoById(UUID id) {
-        return deviceRepo.findById(id).map(this::convertToDto);
-    }
-    @Operation(summary = "Obtener dispositivos por usuario", description = "Obtiene una lista de dispositivos asociados a un usuario")
-    public List<DeviceDto> getDevicesDtoByUser(Optional<User> user) {
-        return deviceRepo.findByUser(user).stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
-    }
-    @Operation(summary = "Obtener dispositivo por número de serie", description = "Obtiene un dispositivo por su número de serie")
-    public DeviceDto getDeviceDtoBySerialNumber(String serialNumber) {
-        Device device = deviceRepo.findBySerialNumber(serialNumber);
-        return device != null ? convertToDto(device) : null;
-    }
-    @Operation(summary = "Obtener dispositivos por marca", description = "Obtiene una lista de dispositivos por marca")
-    public List<DeviceDto> getDevicesDtoByBrand(String brand) {
-        return deviceRepo.findByBrand(brand).stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
-    }
-    @Operation(summary = "Obtener dispositivos por tipo", description = "Obtiene una lista de dispositivos por tipo")
-    private DeviceDto convertToDto(Device device) {
-        DeviceDto dto = new DeviceDto();
-        dto.setId(device.getId());
-        dto.setType(device.getType());
-        dto.setBrand(device.getBrand());
-        dto.setModel(device.getModel());
-        dto.setSerialNumber(device.getSerialNumber());
-        dto.setUserId(device.getUser() != null ? device.getUser().getId() : null);
-        return dto;
-    }
-    @Operation(summary = "Guardar dispositivo", description = "Guarda un nuevo dispositivo en la base de datos")
-    @Transactional
-    public String saveDeviceInstance(DeviceDto deviceDto) {
-        // Verificar si el userId está presente en el DTO
-        UUID userId = deviceDto.getUserId();
-        // Verificar si el usuario existe en la base de datos
-        User user = userRepo.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con ID: " + userId));
-        // Crear una nueva instancia de Device
-        Device device = new Device();
-        device.setType(deviceDto.getType());
-        device.setBrand(deviceDto.getBrand());
-        device.setModel(deviceDto.getModel());
-        device.setSerialNumber(deviceDto.getSerialNumber());
-        device.setUser(user);  // Asignar manualmente el usuario
 
-        // Guardar el dispositivo en la base de datos
-        deviceRepo.save(device);
-        return "Device successfully registered";
+    @Autowired
+    private DeviceRepo deviceRepo;
+
+    @Autowired
+    private UserRepo userRepo;
+
+    // ============================
+    // GET ALL
+    // ============================
+
+    public List<DeviceResponseDto> getAllDevices() {
+        return deviceRepo.findAll()
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    public List<DeviceResponseDto> getDevicesByUserDni(Integer userDni) {
+        User user = userRepo.findByDni(Objects.requireNonNull(userDni, "User DNI vacío"))
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return deviceRepo.findByUser(user).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    public DeviceResponseDto getDeviceBySerialNumber(String serialNumber) {
+        Device device = deviceRepo.findBySerialNumber(serialNumber);
+        return device != null ? toResponse(device) : null;
+    }
+
+    public List<DeviceResponseDto> getDevicesByBrand(String brand) {
+        return deviceRepo.findByBrand(brand).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    // ============================
+    // GET BY ID
+    // ============================
+
+    public DeviceResponseDto getDeviceById(UUID id) {
+
+        Device device = deviceRepo.findById(
+                Objects.requireNonNull(id, "ID vacío"))
+                .orElseThrow(() -> new RuntimeException("Device not found"));
+
+        return toResponse(device);
+    }
+
+    public Device getDeviceEntityById(UUID id) {
+        return deviceRepo.findById(Objects.requireNonNull(id, "ID vacío"))
+                .orElseThrow(() -> new RuntimeException("Device not found"));
+    }
+
+    // ============================
+    // SAVE
+    // ============================
+
+    public DeviceResponseDto saveDevice(DeviceCreateRequestDto request) {
+
+        User user = userRepo.findById(
+                Objects.requireNonNull(request.getUserId(), "User ID vacío"))
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Device device = Device.builder()
+                .type(request.getType())
+                .brand(request.getBrand())
+                .model(request.getModel())
+                .serialNumber(request.getSerialNumber())
+                .user(user)
+                // snapshot
+                .userName(user.getName())
+                .userDni(user.getDni())
+                .build();
+
+        Device saved = deviceRepo.save(Objects.requireNonNull(device));
+
+        return toResponse(saved);
+    }
+
+    // ============================
+    // UPDATE
+    // ============================
+
+    public DeviceResponseDto updateDevice(DeviceUpdateRequestDto request) {
+
+        Device existing = deviceRepo.findById(
+                Objects.requireNonNull(request.getId(), "ID vacío"))
+                .orElseThrow(() -> new RuntimeException("Device not found"));
+
+        existing.setType(request.getType());
+        existing.setBrand(request.getBrand());
+        existing.setModel(request.getModel());
+        existing.setSerialNumber(request.getSerialNumber());
+
+        UUID userId = request.getUserId();
+        if (userId != null) {
+
+            User user = userRepo.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            existing.setUser(user);
+
+            // actualizar snapshot
+            existing.setUserName(user.getName());
+            existing.setUserDni(user.getDni());
+        }
+
+        Device updated = deviceRepo.save(existing);
+
+        return toResponse(updated);
+    }
+
+    // ============================
+    // DELETE
+    // ============================
+
+    public void deleteDevice(UUID id) {
+
+        if (!deviceRepo.existsById(
+                Objects.requireNonNull(id, "ID vacío"))) {
+
+            throw new RuntimeException("Device not found");
+        }
+
+        deviceRepo.deleteById(id);
+    }
+
+    // ============================
+    // MAPPER
+    // ============================
+
+    private DeviceResponseDto toResponse(Device device) {
+
+        return DeviceResponseDto.builder()
+                .id(device.getId())
+                .type(device.getType())
+                .brand(device.getBrand())
+                .model(device.getModel())
+                .serialNumber(device.getSerialNumber())
+                .userId(device.getUser() != null ? device.getUser().getId() : null)
+                .userName(device.getUserName())
+                .userDni(device.getUserDni())
+                .build();
     }
 }
