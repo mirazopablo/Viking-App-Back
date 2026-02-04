@@ -12,12 +12,14 @@ import java.util.UUID;
 public interface UserRepo extends JpaRepository<User, UUID> {
     @Operation(summary = "Buscar usuario por DNI")
     Optional<User> findByDni(Integer dni);
-    @Operation(summary = "Buscar usuario por CUIT")
-    Optional<User> findByCuit(String cuit);
+
     @Operation(summary = "Buscar usuario por email")
     Optional<User> findByEmail(String email);
+
     @Operation(summary = "Verifica si existe el usuario por email")
     boolean existsByEmail(String email);
+
     @Operation(summary = "Buscar ID por email")
+    @org.springframework.data.jpa.repository.Query("SELECT u.id FROM User u WHERE u.email = :email")
     UUID findIdByEmail(String email);
 }
