@@ -1,7 +1,6 @@
 package com.ElVikingoStore.Viking_App.Repositories;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,8 +13,10 @@ import com.ElVikingoStore.Viking_App.Models.WorkOrder;
 public interface WorkOrderRepo extends JpaRepository<WorkOrder, UUID> {
     @Operation(summary = "Buscar ordenes de trabajo por staffId")
     List<WorkOrder> findByStaffId(UUID staffId);
-    @Operation(summary = "Buscar ordenes de trabajo por clientId")
-    List<WorkOrder> findByClientId(UUID clientId);
-    @Operation(summary = "Buscar ordenes de trabajo por deviceId")
-    List<WorkOrder> findByDeviceId(UUID deviceId);
+
+    @Operation(summary = "Buscar ordenes de trabajo por clientDni")
+    List<WorkOrder> findByClientDni(Integer clientDni);
+
+    @Operation(summary = "Buscar ordenes de trabajo por deviceSerialNumber")
+    List<WorkOrder> findByDeviceSerialNumber(String deviceSerialNumber);
 }

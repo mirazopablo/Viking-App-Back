@@ -1,22 +1,19 @@
 package com.ElVikingoStore.Viking_App.Services;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
-import static java.util.Objects.requireNonNull;
+import com.ElVikingoStore.Viking_App.DTOs.WorkOrder.WorkOrderCreateRequestDto;
+import com.ElVikingoStore.Viking_App.DTOs.WorkOrder.WorkOrderResponseDto;
 
-import com.ElVikingoStore.Viking_App.DTOs.DeviceDto;
-import com.ElVikingoStore.Viking_App.DTOs.WorkOrderDto;
 import com.ElVikingoStore.Viking_App.Models.Device;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.transaction.Transactional;
-import lombok.extern.slf4j.Slf4j;
-import org.hibernate.jdbc.Work;
-import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.stereotype.Service;
 
 import com.ElVikingoStore.Viking_App.Models.User;
@@ -24,6 +21,7 @@ import com.ElVikingoStore.Viking_App.Models.WorkOrder;
 import com.ElVikingoStore.Viking_App.Repositories.WorkOrderRepo;
 
 import jakarta.persistence.EntityNotFoundException;
+
 @Schema(name = "WorkOrderService", description = "Service for managing work orders")
 @Service
 public class WorkOrderService {
@@ -32,57 +30,101 @@ public class WorkOrderService {
     private final UserService userService;
     private final DeviceService deviceService;
 
-    @Autowired
-    public WorkOrderService(WorkOrderRepo workOrderRepo, UserService userService, DeviceService deviceService) {
+    public WorkOrderService(WorkOrderRepo workOrderRepo,
+            UserService userService,
+            DeviceService deviceService) {
         this.workOrderRepo = workOrderRepo;
         this.userService = userService;
         this.deviceService = deviceService;
     }
-    @Operation(summary = "Get work order by ID", description = "Get a work order by its ID")
+
+    // =============================
+    // CREATE
+    // =============================
+
     @Transactional
-    public WorkOrder getWorkOrderById(UUID id) {
-        return workOrderRepo.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Work order not found with ID: " + id));
-    }
-    @Operation(summary = "Get all work orders", description = "Get all work orders")
-    public List<WorkOrderDto> getAllWorkOrders() {
-        List<WorkOrder> workOrders = workOrderRepo.findAll();
-        return workOrders.stream().map(this::convertToDto).collect(Collectors.toList());
-    }
-    @Operation(summary = "Get work orders by staff ID", description = "Get all work orders assigned to a staff member")
-    public List<WorkOrderDto> getWorkOrdersByStaffId(UUID staffId) {
-        List<WorkOrder> workOrders = workOrderRepo.findByStaffId(staffId);
-        return workOrders.stream().map(this::convertToDto).collect(Collectors.toList());
-    }
-    @Operation(summary = "Get work orders by client ID", description = "Get all work orders assigned to a client")
-    public List<WorkOrderDto> getWorkOrdersByClientId(UUID clientId) {
-        List<WorkOrder> workOrders = workOrderRepo.findByClientId(clientId);
-        return workOrders.stream().map(this::convertToDto).collect(Collectors.toList());
-    }
-    @Operation(summary = "Get work orders by device ID", description = "Get all work orders assigned to a device")
-    public List<WorkOrderDto> getWorkOrdersByDeviceId(UUID deviceId){
-        List<WorkOrder> workOrders = workOrderRepo.findByDeviceId(deviceId);
-        return workOrders.stream().map(this::convertToDto).collect(Collectors.toList());
-    }
-    @Operation(summary = "Save work order", description = "Save a new work order")
-    public WorkOrder saveWorkOrder(WorkOrderDto workOrderDto, String staffEmail) {
+    public WorkOrderResponseDto createWorkOrder(WorkOrderCreateRequestDto request, String staffEmail) {
 
         User staff = findUserByEmail(staffEmail);
-        User client = findUser(workOrderDto.getClientId(), "Client");
-        Device device = findAndValidateDevice(workOrderDto.getDeviceId(), client);
+        User client = findUser(request.getClientId(), "Client");
+        Device device = findAndValidateDevice(request.getDeviceId(), client);
 
-        WorkOrder workOrder = new WorkOrder();
-        workOrder.setClient(client);
-        workOrder.setStaff(staff);
-        workOrder.setDevice(device);
-        workOrder.setIssueDescription(workOrderDto.getIssueDescription());
-        workOrder.setRepairStatus(workOrderDto.getRepairStatus());
+        WorkOrder workOrder = WorkOrder.builder()
+                .client(client)
+                .staff(staff)
+                .device(device)
+                .issueDescription(request.getIssueDescription())
+                .repairStatus(request.getRepairStatus())
+                // snapshot
+                .clientName(client.getName())
+                .clientDni(client.getDni())
+                .deviceBrand(device.getBrand())
+                .deviceModel(device.getModel())
+                .deviceSerialNumber(device.getSerialNumber())
+                .build();
 
-        WorkOrder savedWorkOrder = workOrderRepo.save(workOrder);
+        WorkOrder saved = workOrderRepo.save(Objects.requireNonNull(workOrder));
 
-        return savedWorkOrder;
+        return convertToResponse(saved);
     }
-    @Operation(summary="Buscar usuarios por email", description="Buscar usuarios por email")
+
+    // =============================
+    // READ
+    // =============================
+
+    public List<WorkOrderResponseDto> getAllWorkOrders() {
+        return workOrderRepo.findAll()
+                .stream()
+                .map(this::convertToResponse)
+                .toList();
+    }
+
+    public WorkOrderResponseDto getWorkOrderById(UUID id) {
+        return convertToResponse(getWorkOrderEntityById(id));
+    }
+
+    public WorkOrder getWorkOrderEntityById(UUID id) {
+        return workOrderRepo.findById(Objects.requireNonNull(id, "ID vacío"))
+                .orElseThrow(() -> new EntityNotFoundException("Work order not found"));
+    }
+
+    public List<WorkOrderResponseDto> getWorkOrdersByStaffId(UUID staffId) {
+        return workOrderRepo.findByStaffId(staffId)
+                .stream()
+                .map(this::convertToResponse)
+                .toList();
+    }
+
+    public List<WorkOrderResponseDto> getWorkOrdersByClientDni(Integer clientDni) {
+        return workOrderRepo.findByClientDni(clientDni)
+                .stream()
+                .map(this::convertToResponse)
+                .toList();
+    }
+
+    public List<WorkOrderResponseDto> getWorkOrdersByDeviceSerialNumber(String deviceSerialNumber) {
+        return workOrderRepo.findByDeviceSerialNumber(deviceSerialNumber)
+                .stream()
+                .map(this::convertToResponse)
+                .toList();
+    }
+
+    // =============================
+    // UPDATE STATUS
+    // =============================
+
+    @Transactional
+    public void updateWorkOrderStatus(UUID orderId, String newStatus) {
+        WorkOrder workOrder = workOrderRepo.findById(Objects.requireNonNull(orderId, "ID vacío"))
+                .orElseThrow(() -> new EntityNotFoundException("Work order not found"));
+
+        workOrder.setRepairStatus(newStatus);
+    }
+
+    // =============================
+    // PRIVATE HELPERS
+    // =============================
+
     private User findUserByEmail(String email) {
         User user = userService.getUserByEmail(email);
         if (user == null) {
@@ -90,35 +132,49 @@ public class WorkOrderService {
         }
         return user;
     }
-    @Operation(summary="Buscar usuarios por ID", description="Buscar usuarios por ID")
+
     private User findUser(UUID userId, String userType) {
-        return userService.getUserById(userId)
-                .orElseThrow(() -> new EntityNotFoundException(userType + " not found with ID: " + userId));
+        return userService.getUserEntityById(userId);
     }
-    @Operation(summary="Buscar y validar dispositivo", description="Buscar y validar dispositivo")
+
     private Device findAndValidateDevice(UUID deviceId, User client) {
-        Device device = deviceService.getDeviceById(deviceId)
-                .orElseThrow(() -> new EntityNotFoundException("Device not found with ID: " + deviceId));
+        Device device = deviceService.getDeviceEntityById(deviceId);
+
         if (!device.getUser().getId().equals(client.getId())) {
-            throw new IllegalArgumentException("The device does not belong to the specified client");
+            throw new IllegalArgumentException("Device does not belong to the specified client");
         }
+
         return device;
     }
-    @Operation(summary="Convertir a DTO", description="Convertir a DTO")
-    private WorkOrderDto convertToDto(WorkOrder workOrder) {
-        return WorkOrderDto.builder()
+
+    @Operation
+    public boolean deleteWorkOrder(UUID workOrderId) {
+        try {
+            Optional<WorkOrder> workOrder = workOrderRepo.findById(Objects.requireNonNull(workOrderId, "ID vacío"));
+            if (workOrder.isEmpty()) {
+                return false;
+            }
+            workOrderRepo.deleteById(workOrderId);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private WorkOrderResponseDto convertToResponse(WorkOrder workOrder) {
+        return WorkOrderResponseDto.builder()
                 .id(workOrder.getId())
                 .clientId(workOrder.getClient().getId())
                 .staffId(workOrder.getStaff().getId())
                 .deviceId(workOrder.getDevice().getId())
                 .issueDescription(workOrder.getIssueDescription())
                 .repairStatus(workOrder.getRepairStatus())
+                .clientName(workOrder.getClientName())
+                .clientDni(workOrder.getClientDni())
+                .deviceBrand(workOrder.getDeviceBrand())
+                .deviceModel(workOrder.getDeviceModel())
+                .deviceSerialNumber(workOrder.getDeviceSerialNumber())
+                .createdAt(workOrder.getCreatedAt())
                 .build();
-    }
-    @Operation(summary="Actualizar estado de orden de trabajo", description="Actualizar estado de orden de trabajo")
-    public void updateWorkOrderStatus(UUID orderId, String newStatus) {
-        WorkOrder workOrder = workOrderRepo.findById(orderId).orElseThrow();
-        workOrder.setRepairStatus(newStatus);
-        workOrderRepo.save(workOrder);
     }
 }
