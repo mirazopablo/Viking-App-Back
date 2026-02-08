@@ -2,6 +2,8 @@ package com.ElVikingoStore.Viking_App.Resources;
 
 import java.util.List;
 import java.util.UUID;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.stream.Collectors;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -76,11 +78,9 @@ public class DiagnosticPointResource {
             diagnosticPoint.setWorkOrder(workOrderEntity);
             diagnosticPoint.setDescription(requestDto.getDescription());
             diagnosticPoint.setNotes(requestDto.getNotes());
-            if (requestDto.getTimestamp() != null) {
-                diagnosticPoint.setTimestamp(requestDto.getTimestamp());
-            }
+            diagnosticPoint.setTimestamp(LocalDateTime.now(ZoneId.of("America/Argentina/Buenos_Aires")));
 
-            String filename = storageService.store(file);
+            String filename = storageService.store(file, requestDto.getWorkOrderId().toString());
             // Cambia la URL para que utilice el formato solicitado
             String url = "http://" + serverAddress + ":" + serverPort + "/auth/uploads/" + filename;
             diagnosticPoint.getMultimediaFiles().add(url);
