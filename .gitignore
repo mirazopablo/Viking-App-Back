@@ -148,3 +148,4 @@ mvnw
 mvnw.cmd
 *.png
 *.jpg
+.sdkmanrc
