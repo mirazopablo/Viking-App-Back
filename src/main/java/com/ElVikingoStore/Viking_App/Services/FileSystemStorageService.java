@@ -53,6 +53,41 @@ public final class FileSystemStorageService implements StorageInterface {
         }
     }
 
+    @Operation(summary = "Almacenar archivo en subdirectorio", description = "Almacena un archivo en un subdirectorio del sistema de archivos")
+    @Override
+    public String store(MultipartFile file, String subDirectory) {
+        try {
+            if (file.isEmpty()) {
+                throw new RuntimeException("Failed to store empty file.");
+            }
+            if (subDirectory.contains("..")) {
+                throw new RuntimeException("Cannot store file with relative path outside current directory "
+                        + subDirectory);
+            }
+
+            Path subDirPath = this.rootLocation.resolve(subDirectory);
+            if (!Files.exists(subDirPath)) {
+                Files.createDirectories(subDirPath);
+            }
+
+            Path destinationFile = subDirPath.resolve(
+                    Paths.get(file.getOriginalFilename()))
+                    .normalize().toAbsolutePath();
+
+            if (!destinationFile.startsWith(this.rootLocation.toAbsolutePath())) {
+                throw new RuntimeException("Cannot store file outside current directory.");
+            }
+
+            // Copiar el archivo
+            Files.copy(file.getInputStream(), destinationFile, StandardCopyOption.REPLACE_EXISTING);
+
+            // Devuelve la ruta relativa para uso en URL (asegurando separadores tipo URL)
+            return subDirectory + "/" + file.getOriginalFilename();
+        } catch (IOException | RuntimeException e) {
+            throw new RuntimeException("Failed to store file. Error: " + e.getMessage());
+        }
+    }
+
     @Operation(summary = "Inicializar almacenamiento", description = "Inicializa el directorio de almacenamiento si no existe")
     @Override
     @PostConstruct
